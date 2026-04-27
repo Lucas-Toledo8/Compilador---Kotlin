@@ -108,7 +108,6 @@ def main():
     else:
         print(f"Análise finalizada com {parser.getNumberOfSyntaxErrors()} erro(s).") 
       
-
         
 if __name__ == '__main__':
     main()
