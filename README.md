@@ -8,7 +8,7 @@ Este projeto consiste em um **Front-end de Compilador** para uma versão simplif
 * `KotlinLexer.g4`: Gramática léxica (Scanner).
 * `KotlinParser.g4`: Gramática sintática (Parser).
 * `interpretadorSematica.py`: Implementação do interpretador para percurso de execução (LOG SEMÂNTICO).
-* `interpretador.py`: Implementação do interpretador para execução (Resultado no terminal).
+* `interpretador.py`: Implementação do interpretador para execução (Resultado no Terminal).
 * `main.py`: Script principal de execução e geração da AST.
 * `/Casos_deTeste`: Arquivos de teste com o algoritmo e os AST `.dot`.
 * `antlr-4.13.2-complete.jar`: Binário do ANTLR necessário para compilação.
