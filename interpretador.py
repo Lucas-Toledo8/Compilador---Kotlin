@@ -18,6 +18,7 @@ class Interpretador(KotlinParserVisitor):
                     return self.visit(ctx.block(1))
             return None
 
+
         # 2. Laços de Repetição (Regra: loopExpression) 
         def visitLoopExpression(self, ctx):
             while self.visit(ctx.expression()):

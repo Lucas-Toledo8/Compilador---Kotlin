@@ -99,6 +99,7 @@ def main():
         
         print("\n-----------------------------\n")
     
+    
     if parser.getNumberOfSyntaxErrors() == 0:
         print("Análise sintática finalizada com sucesso! Código válido.")
         
