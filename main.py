@@ -4,6 +4,10 @@ import os
 from antlr4 import *
 from antlr4.tree.Trees import Trees
 
+from interpretador import Interpretador
+from interpretadorSematica import InterpretadorSematica
+
+
 # Ajuste do caminho para a pasta Antlr
 sys.path.append(os.path.join(os.path.dirname(__file__), 'Antlr'))
 
@@ -28,6 +32,7 @@ def generate_dot(node, parser, file):
         file.write(f'  n{id(node)} -> n{id(child)};\n')
         generate_dot(child, parser, file)
 
+
 def main():
     
     
@@ -35,10 +40,10 @@ def main():
     arquivos_kt = glob.glob("Casos_de_Teste/*.kt")
 
     if not arquivos_kt:
-        print("Nenhum arquivo .kt encontrado na pasta!")
+        print("\nNenhum arquivo .kt encontrado na pasta!\n")
         return
 
-    print("--- Arquivos encontrados ---")
+    print("\n--- Arquivos encontrados ---")
     for i, nome in enumerate(arquivos_kt):
         arquivo_nome = os.path.basename(nome)
         print(f"[{i}] {arquivo_nome}")
@@ -64,7 +69,7 @@ def main():
     token_stream = CommonTokenStream(lexer)
     token_stream.fill() 
     
-    print("--- LOG DE TOKENS ---")
+    print("\n--- LOG DE TOKENS ---\n")
     for token in token_stream.tokens:
         if token.type != Token.EOF:
             tipo = lexer.symbolicNames[token.type] if token.type < len(lexer.symbolicNames) else "UNKNOWN"
@@ -76,9 +81,23 @@ def main():
     parser.removeErrorListeners()
     parser.addErrorListener(MyErrorListener())
     
-    print("\n--- INICIANDO ANÁLISE SINTÁTICA ---")
-    # CHAMADA ÚNICA: A árvore é guardada na variável 'tree'
+   
     tree = parser.kotlinFile() 
+    
+    if parser.getNumberOfSyntaxErrors() == 0:
+        print("\n--- INICIANDO PERCURSO DE EXECUÇÃO (LOG SEMÂNTICO) ---\n")
+        
+        executor = InterpretadorSematica() # Esta é a classe importada do seu interpretadorSematica.py
+        executor.visit(tree)       # Aqui ele percorre a árvore e imprime os logs
+       
+    if parser.getNumberOfSyntaxErrors() == 0:
+        
+        print("\n--- EXECUÇÃO (Interpretador Terminal) ---\n")
+        
+        executor = Interpretador() # Esta é a classe importada do seu interpretador.py
+        executor.visit(tree)       # Aqui ele percorre a árvore e imprime os logs
+        
+        print("\n-----------------------------\n")
     
     if parser.getNumberOfSyntaxErrors() == 0:
         print("Análise sintática finalizada com sucesso! Código válido.")
@@ -99,9 +118,9 @@ def main():
                         
                         generate_dot(tree, parser, f)
                         f.write("}\n")
-                    print(f"Arquivo '{os.path.basename(nome_dot)}' gerado com sucesso!")
+                    print(f"\nArquivo '{os.path.basename(nome_dot)}' gerado com sucesso!")
                 else:
-                    print("Encerrando sem gerar o gráfico...")
+                    print("\nEncerrando sem gerar o gráfico...")
                 break 
             except EOFError:
                 break 

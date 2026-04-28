@@ -1,7 +1,7 @@
 fun main() {
-  var a: Int = 1;
-  var b: Int = 1;
-  var c: Int = 3;
+  var a: Int = 2;
+  var b: Int = 3;
+  var c: Int = 2;
 
   
   if (a <= 0 || b <= 0 || c <= 0) {
