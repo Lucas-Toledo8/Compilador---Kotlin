@@ -61,11 +61,11 @@ python main.py
 
 ## Visualização da AST (Árvore Sintática)
 
-Após a execução bem-sucedida, um arquivo chamado `tree.dot` será gerado na raiz do projeto.  
+Após a execução bem-sucedida, um arquivo chamado `<nome_do_arquivo.kt>.dot` será gerado na raiz do projeto.  
 
 **Para visualizar o gráfico:**
 
-1. Copie o conteúdo de `tree.dot`.
+1. Copie o conteúdo de `<nome_do_arquivo.kt>.dot`.
 
 2. Cole no site [Graphviz Online](https://dreampuf.github.io/GraphvizOnline/).
 
