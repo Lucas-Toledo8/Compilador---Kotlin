@@ -1,6 +1,6 @@
 fun main() {
     var n: Int = 5;
-    var i: Int = 0;
+    var i: Int = 
 
     println("Gerando Triangulo de Pascal:");
     println("");

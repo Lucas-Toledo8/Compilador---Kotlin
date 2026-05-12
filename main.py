@@ -1,12 +1,11 @@
+# main_semantico.py
+# Pipeline: analise lexica + sintatica + semantica
+
 import glob
-import sys
 import os
+import sys
 from antlr4 import *
 from antlr4.tree.Trees import Trees
-
-from interpretador import Interpretador
-from interpretadorSematica import InterpretadorSematica
-
 
 # Ajuste do caminho para a pasta Antlr
 sys.path.append(os.path.join(os.path.dirname(__file__), 'Antlr'))
@@ -14,14 +13,32 @@ sys.path.append(os.path.join(os.path.dirname(__file__), 'Antlr'))
 from Antlr.KotlinLexer import KotlinLexer
 from Antlr.KotlinParser import KotlinParser
 from antlr4.error.ErrorListener import ErrorListener
+from semantic_analyzer import SemanticAnalyzer
 
-class MyErrorListener(ErrorListener):
-    def syntaxError(self, recognizer, offendingSymbol, line, column, msg, e):
-        print(f"ERRO SINTÁTICO [Linha {line}, Coluna {column}]: Símbolo '{offendingSymbol.text}' inesperado.")
 
-class MyLexerErrorListener(ErrorListener):
+class CompilerErrorListener(ErrorListener):
+    def __init__(self, fase):
+        super().__init__()
+        self.fase = fase
+        self.errors = []
+
     def syntaxError(self, recognizer, offendingSymbol, line, column, msg, e):
-        print(f"ERRO LÉXICO [Linha {line}, Coluna {column}]: Símbolo inválido.")
+        self.errors.append(f"[ERRO {self.fase.upper()}] linha {line}, coluna {column} - {msg}")
+
+
+def imprimir_tokens(filename):
+    print("\n===== LOG LEXICO =====")
+    input_stream = FileStream(filename, encoding="utf-8")
+    lexer = KotlinLexer(input_stream)
+    stream = CommonTokenStream(lexer)
+    stream.fill()
+
+    for token in stream.tokens:
+        if token.type == Token.EOF:
+            continue
+
+        token_name = lexer.symbolicNames[token.type]
+        print(f"[LEXICO] linha {token.line}, coluna {token.column} - {token_name}: '{token.text}'")
 
 def generate_dot(node, parser, file):
     """Gera o formato DOT recursivamente para o Graphviz"""
@@ -30,20 +47,19 @@ def generate_dot(node, parser, file):
     for i in range(node.getChildCount()):
         child = node.getChild(i)
         file.write(f'  n{id(node)} -> n{id(child)};\n')
-        generate_dot(child, parser, file)
+        generate_dot(child, parser, file)        
 
 
 def main():
-    
-    
+
     # 1. Busca todos os arquivos que terminam com .kt na pasta atual
     arquivos_kt = glob.glob("Casos_de_Teste/*.kt")
 
     if not arquivos_kt:
-        print("\nNenhum arquivo .kt encontrado na pasta!\n")
+        print("Nenhum arquivo .kt encontrado na pasta!")
         return
 
-    print("\n--- Arquivos encontrados ---")
+    print("--- Arquivos encontrados ---")
     for i, nome in enumerate(arquivos_kt):
         arquivo_nome = os.path.basename(nome)
         print(f"[{i}] {arquivo_nome}")
@@ -59,17 +75,19 @@ def main():
     
 
     input_stream = FileStream(arquivo_nome, encoding='utf-8')
-    
+
+
     # 1. Lexer
     lexer = KotlinLexer(input_stream)
+    lexical_listener = CompilerErrorListener("lexico")
     lexer.removeErrorListeners()
-    lexer.addErrorListener(MyLexerErrorListener())
+    lexer.addErrorListener(lexical_listener)
 
     # 2. Tokens
     token_stream = CommonTokenStream(lexer)
-    token_stream.fill() 
-    
-    print("\n--- LOG DE TOKENS ---\n")
+    token_stream.fill()
+
+    print("--- LOG DE TOKENS ---")
     for token in token_stream.tokens:
         if token.type != Token.EOF:
             tipo = lexer.symbolicNames[token.type] if token.type < len(lexer.symbolicNames) else "UNKNOWN"
@@ -78,26 +96,44 @@ def main():
     # 3. Parser
     token_stream.reset() # Volta para o início para o Parser ler
     parser = KotlinParser(token_stream)
+    syntax_listener = CompilerErrorListener("sintatico")
     parser.removeErrorListeners()
-    parser.addErrorListener(MyErrorListener())
-    
-   
+    parser.addErrorListener(syntax_listener)
+
     tree = parser.kotlinFile() 
-    
-    if parser.getNumberOfSyntaxErrors() == 0:
-        print("\n--- INICIANDO PERCURSO DE EXECUÇÃO (LOG SEMÂNTICO) ---\n")
-        
-        executor = InterpretadorSematica() # Esta é a classe importada do seu interpretadorSematica.py
-        executor.visit(tree)       # Aqui ele percorre a árvore e imprime os logs
-       
-    if parser.getNumberOfSyntaxErrors() == 0:
-        
-        print("\n--- EXECUÇÃO (Interpretador Terminal) ---\n")
-        
-        executor = Interpretador() # Esta é a classe importada do seu interpretador.py
-        executor.visit(tree)       # Aqui ele percorre a árvore e imprime os logs
-        
-        print("\n-----------------------------\n")
+
+    if lexical_listener.errors:
+        print("\n===== ERROS LEXICOS =====")
+        for error in lexical_listener.errors:
+            print(error)
+
+    if syntax_listener.errors:
+        print("\n===== ERROS SINTATICOS =====")
+        for error in syntax_listener.errors:
+            print(error)
+
+    if lexical_listener.errors or syntax_listener.errors:
+        print("\nAnalise semantica nao executada porque existem erros lexicos ou sintaticos.")
+        return
+
+    analyzer = SemanticAnalyzer()
+    analyzer.visit(tree)
+
+    print("\n===== LOG SEMANTICO =====")
+    for item in analyzer.log:
+        print(item)
+
+    if analyzer.errors:
+        print("\n===== ERROS SEMANTICOS =====")
+        for error in analyzer.errors:
+            print(error)
+    else:
+        print("\nAnalise semantica concluida sem erros.")
+
+
+
+    print("\n--- INICIANDO ANÁLISE SINTÁTICA ---")
+    # CHAMADA ÚNICA: A árvore é guardada na variável 'tree'
     
     
     if parser.getNumberOfSyntaxErrors() == 0:
@@ -119,15 +155,17 @@ def main():
                         
                         generate_dot(tree, parser, f)
                         f.write("}\n")
-                    print(f"\nArquivo '{os.path.basename(nome_dot)}' gerado com sucesso!")
+                    print(f"Arquivo '{os.path.basename(nome_dot)}' gerado com sucesso!")
                 else:
-                    print("\nEncerrando sem gerar o gráfico...")
-                break 
+                    print("Encerrando sem gerar o gráfico...")
+                break # Sai do loop após a decisão
             except EOFError:
                 break 
     else:
         print(f"Análise finalizada com {parser.getNumberOfSyntaxErrors()} erro(s).") 
-      
-        
-if __name__ == '__main__':
+
+    
+
+
+if __name__ == "__main__":
     main()
