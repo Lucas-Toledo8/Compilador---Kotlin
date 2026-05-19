@@ -60,6 +60,8 @@ class SemanticAnalyzer(KotlinParserVisitor):
         if ctx.expression():
             expr_type, value = self.visit(ctx.expression())
 
+            if type_ == "Unknown":
+                type_ = expr_type
             if expr_type != "Unknown" and type_ != expr_type:
                 self.semantic_error(
                     ctx,
