@@ -1,19 +1,20 @@
-# main_semantico.py
-# Pipeline: analise lexica + sintatica + semantica
+# main.py
+# Pipeline: analise lexica + sintatica + semantica + geracao de codigo JavaScript
 
 import glob
 import os
 import sys
 from antlr4 import *
 from antlr4.tree.Trees import Trees
+from antlr4.error.ErrorListener import ErrorListener
 
-# Ajuste do caminho para a pasta Antlr
-sys.path.append(os.path.join(os.path.dirname(__file__), 'Antlr'))
+sys.path.append(os.path.join(os.path.dirname(__file__), "Antlr"))
 
 from Antlr.KotlinLexer import KotlinLexer
 from Antlr.KotlinParser import KotlinParser
-from antlr4.error.ErrorListener import ErrorListener
+
 from semantic_analyzer import SemanticAnalyzer
+from gerador_js import JavaScriptGenerator
 
 
 class CompilerErrorListener(ErrorListener):
@@ -23,84 +24,128 @@ class CompilerErrorListener(ErrorListener):
         self.errors = []
 
     def syntaxError(self, recognizer, offendingSymbol, line, column, msg, e):
-        self.errors.append(f"[ERRO {self.fase.upper()}] linha {line}, coluna {column} - {msg}")
+        self.errors.append(
+            f"[ERRO {self.fase.upper()}] linha {line}, coluna {column} - {msg}"
+        )
 
-
-def imprimir_tokens(filename):
-    print("\n===== LOG LEXICO =====")
-    input_stream = FileStream(filename, encoding="utf-8")
-    lexer = KotlinLexer(input_stream)
-    stream = CommonTokenStream(lexer)
-    stream.fill()
-
-    for token in stream.tokens:
-        if token.type == Token.EOF:
-            continue
-
-        token_name = lexer.symbolicNames[token.type]
-        print(f"[LEXICO] linha {token.line}, coluna {token.column} - {token_name}: '{token.text}'")
 
 def generate_dot(node, parser, file):
-    """Gera o formato DOT recursivamente para o Graphviz"""
+    """Gera o formato DOT recursivamente para o Graphviz."""
     text = Trees.getNodeText(node, parser.ruleNames).replace('"', '\\"')
     file.write(f'  n{id(node)} [label="{text}"];\n')
+
     for i in range(node.getChildCount()):
         child = node.getChild(i)
         file.write(f'  n{id(node)} -> n{id(child)};\n')
-        generate_dot(child, parser, file)        
+        generate_dot(child, parser, file)
+
+
+def imprimir_tokens(token_stream, lexer):
+    print("\n--- LOG DE TOKENS ---")
+
+    for token in token_stream.tokens:
+        if token.type != Token.EOF:
+            tipo = (
+                lexer.symbolicNames[token.type]
+                if token.type < len(lexer.symbolicNames)
+                else "UNKNOWN"
+            )
+
+            print(f"<{tipo}, {token.text}, {token.line}, {token.column}>")
 
 
 def main():
-
-    # 1. Busca todos os arquivos que terminam com .kt na pasta atual
     arquivos_kt = glob.glob("Casos_de_Teste/*.kt")
 
     if not arquivos_kt:
-        print("Nenhum arquivo .kt encontrado na pasta!")
+        print("Nenhum arquivo .kt encontrado na pasta Casos_de_Teste!")
         return
 
     print("--- Arquivos encontrados ---")
+
     for i, nome in enumerate(arquivos_kt):
         arquivo_nome = os.path.basename(nome)
         print(f"[{i}] {arquivo_nome}")
 
     try:
-        escolha = int(input("\nEscolha o número do arquivo para rodar (ou aperte Enter para o primeiro): ") or 0)
+        escolha = int(
+            input("\nEscolha o numero do arquivo para rodar (ou Enter para o primeiro): ")
+            or 0
+        )
         arquivo_nome = arquivos_kt[escolha]
+
     except (ValueError, IndexError):
-        print("Seleção inválida. Saindo...")
+        print("Selecao invalida. Saindo...")
         return
 
     print(f"\nProcessando: {os.path.basename(arquivo_nome)}")
-    
 
-    input_stream = FileStream(arquivo_nome, encoding='utf-8')
+    # =========================
+    # ANALISE LEXICA
+    # =========================
 
+    input_stream = FileStream(arquivo_nome, encoding="utf-8")
 
-    # 1. Lexer
     lexer = KotlinLexer(input_stream)
     lexical_listener = CompilerErrorListener("lexico")
+
     lexer.removeErrorListeners()
     lexer.addErrorListener(lexical_listener)
 
-    # 2. Tokens
     token_stream = CommonTokenStream(lexer)
     token_stream.fill()
 
-    print("--- LOG DE TOKENS ---")
-    for token in token_stream.tokens:
-        if token.type != Token.EOF:
-            tipo = lexer.symbolicNames[token.type] if token.type < len(lexer.symbolicNames) else "UNKNOWN"
-            print(f"<{tipo}, {token.text}, {token.line}, {token.column}>")
+    imprimir_tokens(token_stream, lexer)
 
-    # 3. Parser
-    token_stream.reset() # Volta para o início para o Parser ler
+    # =========================
+    # ANALISE SINTATICA
+    # =========================
+
+    token_stream.reset()
+
     parser = KotlinParser(token_stream)
     syntax_listener = CompilerErrorListener("sintatico")
+
     parser.removeErrorListeners()
     parser.addErrorListener(syntax_listener)
 
-    tree = parser.kotlinFile() 
+    print("\n--- INICIANDO ANALISE SINTATICA ---")
+
+    tree = parser.kotlinFile()
+
+    if parser.getNumberOfSyntaxErrors() == 0:
+        print("Analise sintatica finalizada com sucesso! Codigo valido.")
+    else:
+        print(f"Analise sintatica finalizada com {parser.getNumberOfSyntaxErrors()} erro(s).")
+
+    # =========================
+    # GERACAO DO DOT
+    # =========================
+
+    if parser.getNumberOfSyntaxErrors() == 0:
+        opcao_dot = input(
+            f"\nGerar arquivo DOT para '{os.path.basename(arquivo_nome)}'? [S] sim / [Qualquer tecla] nao: "
+        ).strip().upper()
+
+        if opcao_dot == "S":
+            nome_dot = f"{arquivo_nome}.dot"
+
+            with open(nome_dot, "w", encoding="utf-8") as f:
+                f.write("digraph AST {\n")
+                f.write('  fontname="Arial";\n')
+                f.write(f'  label="AST: {os.path.basename(arquivo_nome)}";\n')
+                f.write('  labelloc="t";\n')
+                f.write('  node [fontname="Arial", shape=ellipse];\n')
+
+                generate_dot(tree, parser, f)
+
+                f.write("}\n")
+
+            print(f"Arquivo '{os.path.basename(nome_dot)}' gerado com sucesso!")
+
+    # =========================
+    # ERROS LEXICOS/SINTATICOS
+    # =========================
 
     if lexical_listener.errors:
         print("\n===== ERROS LEXICOS =====")
@@ -113,58 +158,53 @@ def main():
             print(error)
 
     if lexical_listener.errors or syntax_listener.errors:
-        print("\nAnalise semantica nao executada porque existem erros lexicos ou sintaticos.")
+        print("\nAnalise semantica e geracao de codigo nao executadas por causa de erros anteriores.")
         return
+
+    # =========================
+    # ANALISE SEMANTICA
+    # =========================
 
     analyzer = SemanticAnalyzer()
     analyzer.visit(tree)
 
+    logs = getattr(analyzer, "log", getattr(analyzer, "logs", []))
+
     print("\n===== LOG SEMANTICO =====")
-    for item in analyzer.log:
+
+    for item in logs:
         print(item)
 
     if analyzer.errors:
         print("\n===== ERROS SEMANTICOS =====")
         for error in analyzer.errors:
             print(error)
-    else:
-        print("\nAnalise semantica concluida sem erros.")
 
+        print("\nGeracao de codigo nao executada por causa de erros semanticos.")
+        return
 
+    print("\nAnalise semantica concluida sem erros.")
 
-    print("\n--- INICIANDO ANÁLISE SINTÁTICA ---")
-    # CHAMADA ÚNICA: A árvore é guardada na variável 'tree'
-    
-    
-    if parser.getNumberOfSyntaxErrors() == 0:
-        print("Análise sintática finalizada com sucesso! Código válido.")
-        
-        while True:
-            try:
-                opcao = input(f"\nGerar arquivo DOT para '{os.path.basename(arquivo_nome)}'? [S] sim / [Qualquer tecla] sair: ").strip().upper()
-                
-                if opcao == "S":
-                    # Usando f-string para o nome do arquivo .dot
-                    nome_dot = f"{arquivo_nome}.dot"
-                    with open(nome_dot, "w", encoding="utf-8") as f:
-                        f.write("digraph AST {\n")
-                        f.write('  fontname="Arial";\n')
-                        f.write(f'  label="AST: {os.path.basename(arquivo_nome)}";\n')
-                        f.write('  labelloc="t";\n') 
-                        f.write('  node [fontname="Arial", shape=ellipse];\n')
-                        
-                        generate_dot(tree, parser, f)
-                        f.write("}\n")
-                    print(f"Arquivo '{os.path.basename(nome_dot)}' gerado com sucesso!")
-                else:
-                    print("Encerrando sem gerar o gráfico...")
-                break # Sai do loop após a decisão
-            except EOFError:
-                break 
-    else:
-        print(f"Análise finalizada com {parser.getNumberOfSyntaxErrors()} erro(s).") 
+    # =========================
+    # GERACAO DE CODIGO JS
+    # =========================
 
-    
+    opcao_js = input(
+        f"\nGerar JavaScript para '{os.path.basename(arquivo_nome)}'? [S] sim / [Qualquer tecla] nao: "
+    ).strip().upper()
+
+    if opcao_js == "S":
+        generator = JavaScriptGenerator(symbols=analyzer.symbols)
+        js_code = generator.visit(tree)
+
+        nome_js = os.path.splitext(arquivo_nome)[0] + ".js"
+
+        with open(nome_js, "w", encoding="utf-8") as f:
+            f.write(js_code)
+
+        print(f"Arquivo JavaScript gerado com sucesso: {nome_js}")
+
+    print("\n===== COMPILACAO FINALIZADA =====")
 
 
 if __name__ == "__main__":

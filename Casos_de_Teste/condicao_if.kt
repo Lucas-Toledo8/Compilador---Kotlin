@@ -1,7 +1,7 @@
 fun main() {
     var x: Int = 10;
 
-    if (x) {
+    if (x == 10) {
         println(x);
     }
 }
