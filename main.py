@@ -55,13 +55,38 @@ def imprimir_tokens(token_stream, lexer):
 
 
 def main():
-    arquivos_kt = glob.glob("Casos_de_Teste/*.kt")
+    
+    
+
+    # 1. Definimos o caminho das pastas como strings simples
+    pastaA = "Casos_de_Teste/*.kt"
+    pastaB = "Casos_de_Teste_2/*.kt"
+
+    # 2. Lemos a entrada do usuário e padronizamos para maiúscula com .upper()
+    opcaoPasta = input("\nQual pasta de teste utilizar [A] ou [B]: ").upper()
+
+    # 3. Comparamos diretamente o valor digitado pelo usuário
+    if opcaoPasta == "A":
+        arquivos_kt = glob.glob(pastaA)
+      
+
+    elif opcaoPasta == "B":
+        arquivos_kt = glob.glob(pastaB)
+        
+
+    else:
+        arquivos_kt = []
+        print("Opção inválida! Nenhuma pasta selecionada.")
+
+        
+    
+  
 
     if not arquivos_kt:
-        print("Nenhum arquivo .kt encontrado na pasta Casos_de_Teste!")
+        print("Nenhum arquivo .kt encontrado na pasta!")
         return
 
-    print("--- Arquivos encontrados ---")
+    print("\n--- Arquivos encontrados ---")
 
     for i, nome in enumerate(arquivos_kt):
         arquivo_nome = os.path.basename(nome)

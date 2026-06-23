@@ -10,6 +10,7 @@ Este projeto consiste em um **Front-end de Compilador** para uma versão simplif
 * `interpretadorSematica.py`: Implementação do interpretador para percurso de execução (LOG SEMÂNTICO).
 * `interpretador.py`: Implementação do interpretador para execução (Resultado no Terminal).
 * `semantic_analyzer.py`: Implementação do erro Lógico semantico.
+* `gerador_js.py`: Implementação do transpilador de Kotlin para Javascript.
 * `main.py`: Script principal de execução e geração da AST.
 * `/Casos_deTeste`: Arquivos de teste com o algoritmo e os AST `.dot`.
 * `antlr-4.13.2-complete.jar`: Binário do ANTLR necessário para compilação.
